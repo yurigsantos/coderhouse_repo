@@ -3,51 +3,52 @@ from datetime import datetime
 import pandas as pd
 import requests
 
-hoje = datetime.now()
-hoje = hoje.strftime("%d/%m/%Y %H:%M:%S")
+def alerta(nivel, base, etapa):
 
-def alerta():
+    hoje = datetime.now()
+    hoje = hoje.strftime("%d/%m/%Y %H:%M:%S")
+
+    message = f'Falha no carregamento da base {base} na etapa {etapa}.\n{hoje}'
+    
+    if nivel == 1:
+        title = 'ATENÇÃO: Alerta Baixo',
+    elif nivel == 2:
+        title = 'ATENÇÃO: Alerta Médio',
+    elif nivel == 3:
+        title = 'ATENÇÃO: Alerta Alto',
+    
     notification.notify(
-    title = 'Erro',
-    message = f'Não foi possível acessar a API.\n{hoje}',
-    app_name = 'Zelda',
-    timeout = 10)
+        title = title,
+        message = message,
+        app_name = 'alerta',
+        timeout = 10
+        )
 
 url = 'https://botw-compendium.herokuapp.com/api/v3/compendium/all'
+
+
 response = requests.get(url)
 
 if response.status_code == 200:
     data_json = response.json()
 else:
-    print(alerta())
+    print(f'error')
 
 data_json = data_json['data']
+
 zelda_df = pd.DataFrame(data_json)
 
-print(zelda_df.head(0))
-print('----------------------------------------')
-
-
-name = [zelda_df['name'] for zelda_df in data_json]
-local = [zelda_df['common_locations'] for zelda_df in data_json]
-category = [zelda_df['category'] for zelda_df in data_json]
+name = [name for name in zelda_df['name']]
+local = [loc for loc in zelda_df['common_locations']]
+category = [cat for cat in zelda_df['category']]
+loot = [drop for drop in zelda_df['drops']]
 
 items_df = pd.DataFrame({
     'Nome': name,
     'Região': local,
-    'Categoria': category})
+    'Categoria': category,
+    'Loot': loot})
 
-print(items_df.head(10))
-print('----------------------------------------')
-
-
-effect = zelda_df['cooking_effect']
-heal = zelda_df['hearts_recovered']
-
-effect_df = pd.DataFrame({
-    'Nome': name,
-    'Efeito': effect,
-    'Cura': heal})
-
-print(effect_df.head(10))
-print('----------------------------------------')
+items_reg_exploded = items_df.explode('Região', ignore_index=True)
+items_loot_exploded = items_reg_exploded.explode('Loot', ignore_index=True)
+items_loot = items_loot_exploded.dropna()
