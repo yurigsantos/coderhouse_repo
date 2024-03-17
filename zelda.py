@@ -2,7 +2,10 @@ from plyer import notification
 from datetime import datetime
 import pandas as pd
 import requests
+import sqlite3
 
+
+'''Aviso em caso de falha'''
 def alerta(nivel, base, etapa):
 
     hoje = datetime.now()
@@ -24,31 +27,42 @@ def alerta(nivel, base, etapa):
         timeout = 10
         )
 
-url = 'https://botw-compendium.herokuapp.com/api/v3/compendium/all'
+
+'''Banco de dados'''
+def retrieve_table():
+    conn = sqlite3.connect('zelda.db')
+    query = "SELECT name FROM sqlite_master WHERE type='table'"
+    schema = pd.read_sql_query(query,conn)
+
+    conn.close()
+    return schema
+
+def save_db(df,table_name):
+    conn = sqlite3.connect('zelda.db')
+    df.to_sql(table_name, conn, if_exists='replace', index=False)
+
+    conn.close()
+    return True
+
+def load_db(table_name):
+    conn = sqlite3.connect('zelda.db')
+    query = f"SELECT * FROM {table_name}"
+    df = pd.read_sql(query,conn)
+
+    conn.close()
+    return df
 
 
-response = requests.get(url)
+'''Extração'''
+def get_api(url):
+    response = requests.get(url)
 
-if response.status_code == 200:
-    data_json = response.json()
-else:
-    print(f'error')
+    if response.status_code == 200:
+        data_json = response.json()
+    else:
+        print(f'Erro {response.status_code}')
 
-data_json = data_json['data']
-
-zelda_df = pd.DataFrame(data_json)
-
-name = [name for name in zelda_df['name']]
-local = [loc for loc in zelda_df['common_locations']]
-category = [cat for cat in zelda_df['category']]
-loot = [drop for drop in zelda_df['drops']]
-
-items_df = pd.DataFrame({
-    'Nome': name,
-    'Região': local,
-    'Categoria': category,
-    'Loot': loot})
-
-items_reg_exploded = items_df.explode('Região', ignore_index=True)
-items_loot_exploded = items_reg_exploded.explode('Loot', ignore_index=True)
-items_loot = items_loot_exploded.dropna()
+def get_botw():
+    url = 'https://botw-compendium.herokuapp.com/api/v3/compendium/all'
+    data_json = data_json['data']
+    zelda_df = pd.DataFrame(data_json)
